@@ -1,8 +1,8 @@
-import { AKRKeyGen } from "./core/AKRKeyGen";
+﻿import { AKRKeyGen } from "./core/AKRKeyGen";
 import type { KeyGenOptions } from "./types/index";
 
 async function main() {
-  console.log("AKR KeyGen — SA'AT Cryptographics");
+  console.log("AKR KeyGen - SA AT Cryptographics");
   console.log("Initializing cryptographic engine...\n");
 
   const akr = new AKRKeyGen({
@@ -38,7 +38,7 @@ async function main() {
     algorithm: "ML-DSA-65",
   });
 
-  const message = new TextEncoder().encode("PTH Meridian — Ask. Solve. Done.");
+  const message = new TextEncoder().encode("PTH Meridian - Ask. Solve. Done.");
 
   const sigResult = await akr.sign(
     message,
@@ -65,19 +65,10 @@ async function main() {
   console.log(`ECDSA P-256 Public Key:  ${ecdsaKeys.publicKey.length} bytes`);
   console.log(`ECDSA P-256 Private Key: ${ecdsaKeys.privateKey.length} bytes`);
 
-  const classicalSig = classical.signECDSA(
-    message,
-    ecdsaKeys.privateKey,
-    "P-256"
-  );
+  const classicalSig = classical.signECDSA(message, ecdsaKeys.privateKey, "P-256");
   console.log(`ECDSA Signature Length:  ${classicalSig.length} bytes`);
 
-  const classicalValid = classical.verifyECDSA(
-    message,
-    classicalSig,
-    ecdsaKeys.publicKey,
-    "P-256"
-  );
+  const classicalValid = classical.verifyECDSA(message, classicalSig, ecdsaKeys.publicKey, "P-256");
   console.log(`ECDSA Signature Valid:   ${classicalValid}`);
 
   const aesKey = classical.generateAESKey(256);
@@ -86,15 +77,8 @@ async function main() {
   const encrypted = await classical.encryptAES(message, aesKey.key);
   console.log(`AES Ciphertext Length:   ${encrypted.ciphertext.length} bytes`);
 
-  const decrypted = await classical.decryptAES(
-    encrypted.ciphertext,
-    aesKey.key,
-    encrypted.iv
-  );
-
-  const decryptedText = new TextDecoder().decode(decrypted);
-  const originalText = new TextDecoder().decode(message);
-  console.log(`AES Decrypted Match:     ${decryptedText === originalText}`);
+  const decrypted = await classical.decryptAES(encrypted.ciphertext, aesKey.key, encrypted.iv);
+  console.log(`AES Decrypted Match:     ${new TextDecoder().decode(decrypted) === new TextDecoder().decode(message)}`);
 
   console.log("\n--- Testing Hybrid Module ---");
   const { HybridModule } = await import("./modules/hybrid/index");
@@ -140,6 +124,42 @@ async function main() {
   console.log(`Classical Valid:       ${hybridVerify.classicalValid}`);
   console.log(`Quantum Valid:         ${hybridVerify.quantumValid}`);
   console.log(`Both Valid:            ${hybridVerify.bothValid}`);
+
+  console.log("\n--- Testing Mobile Module ---");
+  const { MobileModule } = await import("./modules/mobile/index");
+  const mobile = new MobileModule();
+
+  const mobileKEMKeys = mobile.generateKEMKeyPair();
+  console.log(`ML-KEM-512 Public Key:  ${mobileKEMKeys.publicKey.length} bytes`);
+  console.log(`ML-KEM-512 Private Key: ${mobileKEMKeys.privateKey.length} bytes`);
+
+  const mobileEncap = mobile.encapsulate(mobileKEMKeys.publicKey);
+  console.log(`Ciphertext:             ${mobileEncap.ciphertext.length} bytes`);
+  console.log(`Shared Secret:          ${mobileEncap.sharedSecret.length} bytes`);
+
+  const mobileDecap = mobile.decapsulate(
+    mobileEncap.ciphertext,
+    mobileKEMKeys.privateKey
+  );
+  console.log(`Decapsulation Match:    ${Buffer.from(mobileDecap).toString("hex") === Buffer.from(mobileEncap.sharedSecret).toString("hex")}`);
+
+  const mobileSigKeys = mobile.generateSigningKeyPair();
+  const mobileSig = mobile.sign(message, mobileSigKeys.privateKey, mobileSigKeys.keyId);
+  console.log(`ML-DSA-44 Signature:    ${mobileSig.signature.length} bytes`);
+
+  const mobileValid = mobile.verify(message, mobileSig.signature, mobileSigKeys.publicKey);
+  console.log(`Signature Valid:        ${mobileValid}`);
+
+  const mobileEncrypted = await mobile.encryptAES(message, mobileEncap.sharedSecret);
+  console.log(`AES Ciphertext:         ${mobileEncrypted.ciphertext.length} bytes`);
+
+  const mobileDecrypted = await mobile.decryptAES(
+    mobileEncrypted.ciphertext,
+    mobileEncap.sharedSecret,
+    mobileEncrypted.iv
+  );
+  console.log(`AES Decrypted Match:    ${new TextDecoder().decode(mobileDecrypted) === new TextDecoder().decode(message)}`);
+
   console.log("\nAll tests completed successfully.");
 }
 
