@@ -1,4 +1,6 @@
-﻿import express from "express";
+import express from "express";
+import path from "path";
+import fs from "fs";
 import router from "./routes";
 
 const app = express();
@@ -14,14 +16,16 @@ app.use((req, _res, next) => {
 
 app.use("/api", router);
 
-app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error("Unhandled error:", err.message);
-  res.status(500).json({ error: "Internal server error" });
+app.get("/", (_req, res) => {
+  const filePath = path.resolve("public", "index.html");
+  const html = fs.readFileSync(filePath, "utf8");
+  res.setHeader("Content-Type", "text/html");
+  res.send(html);
 });
 
 app.listen(PORT, () => {
   console.log(`AKR KeyGen API running on port ${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/api/health`);
+  console.log(`Developer Dashboard: http://localhost:${PORT}`);
 });
 
 export default app;
