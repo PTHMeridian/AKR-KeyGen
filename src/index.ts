@@ -96,6 +96,50 @@ async function main() {
   const originalText = new TextDecoder().decode(message);
   console.log(`AES Decrypted Match:     ${decryptedText === originalText}`);
 
+  console.log("\n--- Testing Hybrid Module ---");
+  const { HybridModule } = await import("./modules/hybrid/index");
+  const hybrid = new HybridModule();
+
+  const hybridKEMKeys = hybrid.generateKeyPair();
+  console.log(`Hybrid KEM Classical Public Key:  ${hybridKEMKeys.classical.publicKey.length} bytes`);
+  console.log(`Hybrid KEM Quantum Public Key:    ${hybridKEMKeys.quantum.publicKey.length} bytes`);
+
+  const encap = hybrid.encapsulate(
+    hybridKEMKeys.classical.publicKey,
+    hybridKEMKeys.quantum.publicKey
+  );
+  console.log(`Classical Ciphertext:  ${encap.classicalCiphertext.length} bytes`);
+  console.log(`Quantum Ciphertext:    ${encap.quantumCiphertext.length} bytes`);
+  console.log(`Shared Secret:         ${encap.sharedSecret.length} bytes`);
+
+  const decapSecret = hybrid.decapsulate(
+    encap.classicalCiphertext,
+    encap.quantumCiphertext,
+    hybridKEMKeys.classical.privateKey,
+    hybridKEMKeys.quantum.privateKey
+  );
+  console.log(`Decapsulation Match:   ${Buffer.from(decapSecret).toString("hex") === Buffer.from(encap.sharedSecret).toString("hex")}`);
+
+  const hybridSigKeys = hybrid.generateSigningKeyPair();
+  const hybridSig = hybrid.sign(
+    message,
+    hybridSigKeys.classical.privateKey,
+    hybridSigKeys.quantum.privateKey,
+    "HYBRID-TEST-KEY"
+  );
+  console.log(`Classical Signature:   ${hybridSig.classicalSignature.length} bytes`);
+  console.log(`Quantum Signature:     ${hybridSig.quantumSignature.length} bytes`);
+
+  const hybridVerify = hybrid.verify(
+    message,
+    hybridSig.classicalSignature,
+    hybridSig.quantumSignature,
+    hybridSigKeys.classical.publicKey,
+    hybridSigKeys.quantum.publicKey
+  );
+  console.log(`Classical Valid:       ${hybridVerify.classicalValid}`);
+  console.log(`Quantum Valid:         ${hybridVerify.quantumValid}`);
+  console.log(`Both Valid:            ${hybridVerify.bothValid}`);
   console.log("\nAll tests completed successfully.");
 }
 
