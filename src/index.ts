@@ -37,7 +37,9 @@ async function main() {
     mode: "quantum",
     algorithm: "ML-DSA-65",
   });
+
   const message = new TextEncoder().encode("PTH Meridian — Ask. Solve. Done.");
+
   const sigResult = await akr.sign(
     message,
     sigKeys.privateKey,
@@ -53,11 +55,48 @@ async function main() {
     "ML-DSA-65",
     sigKeys.keyId
   );
- 
   console.log(`Signature Valid:     ${verResult.valid}`);
 
-  console.log("\nAKR KeyGen engine working correctly.");
-  
+  console.log("\n--- Testing Classical Module ---");
+  const { ClassicalModule } = await import("./modules/classical/index");
+  const classical = new ClassicalModule();
+
+  const ecdsaKeys = classical.generateECDSAKeyPair("P-256");
+  console.log(`ECDSA P-256 Public Key:  ${ecdsaKeys.publicKey.length} bytes`);
+  console.log(`ECDSA P-256 Private Key: ${ecdsaKeys.privateKey.length} bytes`);
+
+  const classicalSig = classical.signECDSA(
+    message,
+    ecdsaKeys.privateKey,
+    "P-256"
+  );
+  console.log(`ECDSA Signature Length:  ${classicalSig.length} bytes`);
+
+  const classicalValid = classical.verifyECDSA(
+    message,
+    classicalSig,
+    ecdsaKeys.publicKey,
+    "P-256"
+  );
+  console.log(`ECDSA Signature Valid:   ${classicalValid}`);
+
+  const aesKey = classical.generateAESKey(256);
+  console.log(`AES-256 Key Length:      ${aesKey.key.length} bytes`);
+
+  const encrypted = await classical.encryptAES(message, aesKey.key);
+  console.log(`AES Ciphertext Length:   ${encrypted.ciphertext.length} bytes`);
+
+  const decrypted = await classical.decryptAES(
+    encrypted.ciphertext,
+    aesKey.key,
+    encrypted.iv
+  );
+
+  const decryptedText = new TextDecoder().decode(decrypted);
+  const originalText = new TextDecoder().decode(message);
+  console.log(`AES Decrypted Match:     ${decryptedText === originalText}`);
+
+  console.log("\nAll tests completed successfully.");
 }
 
 main().catch(console.error);
